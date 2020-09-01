@@ -13,6 +13,7 @@ import iOSBuilder from '../build/builders/iOSBuilder';
 import { BuildCommandPlatform } from '../types';
 import createBuilderContext from '../utils/createBuilderContext';
 import createCommandContextAsync from '../utils/createCommandContextAsync';
+import { configureUpdatesAsync } from '../utils/expoUpdates';
 import {
   DirtyGitTreeError,
   ensureGitRepoExistsAsync,
@@ -115,6 +116,11 @@ async function initAction(projectDir: string, options: BuildOptions): Promise<vo
 
   await iosBuilder.ensureCredentialsAsync();
   await iosBuilder.configureProjectAsync();
+
+  await configureUpdatesAsync({
+    projectDir,
+    nonInteractive,
+  });
 }
 
 export default initAction;

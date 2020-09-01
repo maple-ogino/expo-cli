@@ -11,20 +11,25 @@ import { v4 as uuidv4 } from 'uuid';
 import { CredentialsSource, EasJsonReader } from '../../../easJson';
 import log from '../../../log';
 import { ensureProjectExistsAsync } from '../../../projects';
-import { UploadType, uploadAsync } from '../../../uploads';
+import { uploadAsync, UploadType } from '../../../uploads';
 import { createProgressTracker } from '../../utils/progress';
 import { platformDisplayNames } from '../constants';
 import {
   AnalyticsEvent,
   Build,
   BuildCommandPlatform,
-  BuildStatus,
   Builder,
+  BuildStatus,
   CommandContext,
 } from '../types';
 import Analytics from '../utils/analytics';
 import createBuilderContext from '../utils/createBuilderContext';
 import createCommandContextAsync from '../utils/createCommandContextAsync';
+import {
+  isUpdatesConfiguredAndroidAsync,
+  isUpdatesConfiguredIOSAsync,
+  setUpdateVersionsAsync,
+} from '../utils/expoUpdates';
 import {
   ensureGitRepoExistsAsync,
   ensureGitStatusIsCleanAsync,
@@ -165,7 +170,34 @@ async function startBuildAsync<T extends Platform>(
     }
     if (!builder.ctx.commandCtx.skipProjectConfiguration) {
       try {
+        let isUpdatesConfigured = true;
+
+        switch (builder.ctx.platform) {
+          case 'android':
+            isUpdatesConfigured = await isUpdatesConfiguredAndroidAsync(
+              builder.ctx.commandCtx.projectDir
+            );
+            break;
+          case 'ios':
+            isUpdatesConfigured = await isUpdatesConfiguredIOSAsync(
+              builder.ctx.commandCtx.projectDir
+            );
+            break;
+        }
+
+        if (!isUpdatesConfigured) {
+          throw new Error(
+            '"expo-updates" is installed in the project, but the configuration is not up-to-date. Please run "expo eas:build:init" first to configure the project'
+          );
+        }
+
+        await setUpdateVersionsAsync({
+          projectDir: builder.ctx.commandCtx.projectDir,
+          nonInteractive: builder.ctx.commandCtx.nonInteractive,
+        });
+
         await builder.ensureProjectConfiguredAsync();
+
         Analytics.logEvent(
           AnalyticsEvent.CONFIGURE_PROJECT_SUCCESS,
           builder.ctx.trackingCtx.properties
